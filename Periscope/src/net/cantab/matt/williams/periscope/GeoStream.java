@@ -1,12 +1,19 @@
 package net.cantab.matt.williams.periscope;
 
 public class GeoStream {
+    private boolean deleted;
     private float latitude;
     private float longitude;
     private float altitude;
     private String sessionId;
     private String tokenKey;
 
+    public boolean isDeleted() {
+        return deleted;
+    }
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
     public float getLatitude() {
         return latitude;
     }

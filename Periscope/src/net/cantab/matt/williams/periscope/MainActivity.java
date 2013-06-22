@@ -1,30 +1,29 @@
 package net.cantab.matt.williams.periscope;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.ArrayList;
+import java.util.List;
 
+import net.cantab.matt.williams.periscope.CloudbaseManager.GeoStreamCallback;
 import android.app.Activity;
-import android.content.Context;
-import android.content.pm.ActivityInfo;
-import android.hardware.Camera;
+import android.graphics.Point;
+import android.location.Criteria;
+import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.os.PowerManager;
-import android.os.PowerManager.WakeLock;
-import android.util.Log;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Menu;
-import android.view.SurfaceHolder;
-import android.view.SurfaceHolder.Callback;
-import android.view.SurfaceView;
+import android.view.View;
+import android.widget.AbsoluteLayout;
 
-import com.cloudbase.CBHelper;
-import com.cloudbase.CBHelperResponder;
-import com.cloudbase.CBHelperResponse;
-import com.cloudbase.CBQueuedRequest;
-import com.opentok.Publisher;
-import com.opentok.Session;
-import com.opentok.Stream;
-import com.opentok.Subscriber;
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapView;
+import com.google.android.gms.maps.MapsInitializer;
+import com.google.android.gms.maps.model.CameraPosition;
+import com.google.android.gms.maps.model.LatLng;
 
 // Based on git@github.com:opentok/Android-Hello-World.git
 
@@ -34,56 +33,71 @@ import com.opentok.Subscriber;
  * SurfaceHolder instances for each component.
  *
  */
-public class MainActivity extends Activity implements Publisher.Listener, Session.Listener, Callback, CBHelperResponder {
-    private static final String GEOSTREAMS = "geostreams";
-    ExecutorService executor;
-    SurfaceView publisherView;
-    SurfaceView subscriberView1;
-    SurfaceView subscriberView2;
-    Camera camera;
-    Publisher publisher;
-    Subscriber subscriber1;
-    Subscriber subscriber2;
-    private Session session;
-    private WakeLock wakeLock;
-    private LocationTracker mLocationTracker;
-    private CBHelper mCbHelper;
-    private int mNumStreams;
+public class MainActivity extends Activity implements LocationListener, GeoStreamCallback {
+    private static final Criteria CRITERIA = new Criteria();
+    static {
+        CRITERIA.setAccuracy(Criteria.ACCURACY_COARSE);
+    }
+    private static final long MIN_UPDATE_TIME = 10000;
+    private static final float MIN_UPDATE_DISTANCE = 10.0f;
+
+    private class Subscriber {
+        public LatLng latLng;
+        public View view;
+    }
+
+    private MapView mMapView;
+    private GoogleMap mMap;
+    private final Handler mHandler = new Handler();
+    private CloudbaseManager mCloudbaseManager;
+
+    List<Subscriber> mSubscribers = new ArrayList<Subscriber>();
+//    private View mPublisherView;
+//    private TokBoxView mSubscriberView1;
+//    private TokBoxView mSubscriberView2;
+    private final String mPublishSessionId = "2_MX4zMzAwOTg0Mn4xMjcuMC4wLjF-U2F0IEp1biAyMiAwNjozNDozOCBQRFQgMjAxM34wLjIzMTcxNDQ5fg";
     private final String mPublishTokenKey = "T1==cGFydG5lcl9pZD0zMzAwOTg0MiZzZGtfdmVyc2lvbj10YnJ1YnktdGJyYi12MC45MS4yMDExLTAyLTE3JnNpZz05YTA5OTIwMDM3NzM3MTVjNjA5OTI5YmI5NzlmNGE2OGVkYWMzODNkOnJvbGU9cHVibGlzaGVyJnNlc3Npb25faWQ9Ml9NWDR6TXpBd09UZzBNbjR4TWpjdU1DNHdMakYtVTJGMElFcDFiaUF5TWlBd05qb3pORG96T0NCUVJGUWdNakF4TTM0d0xqSXpNVGN4TkRRNWZnJmNyZWF0ZV90aW1lPTEzNzE5MDgwOTImbm9uY2U9MC4zMTY4OTI3MDM2ODQ4MzA4JmV4cGlyZV90aW1lPTEzNzI1MTI4OTImY29ubmVjdGlvbl9kYXRhPQ==";
-
-
+    private final Runnable mUpdateLayouts = new Runnable() {
+        @Override
+        public void run() {
+            for (Subscriber subscriber : mSubscribers) {
+                Point point = mMap.getProjection().toScreenLocation(subscriber.latLng);
+                AbsoluteLayout.LayoutParams params = (AbsoluteLayout.LayoutParams)subscriber.view.getLayoutParams();
+                params.x = point.x - params.width / 2;
+                params.y = point.y - params.height;
+                subscriber.view.setLayoutParams(params);
+            }
+            mHandler.postDelayed(mUpdateLayouts, 10);
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        mLocationTracker = new LocationTracker((LocationManager)getSystemService(Activity.LOCATION_SERVICE));
-
-
-     // the helper class constructor also receives the current Activity object
-     // this is used to get the application details and its cache paths.
-     mCbHelper = new CBHelper("geoviddeo", "6962204d83ba56e7a24fb798b8451f40", this);
-     mCbHelper.setPassword("8207da8cebeff54968639df7ab83d4e8");
-     mCbHelper.searchDocument(GEOSTREAMS, this);
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
-        publisherView = (SurfaceView)findViewById(R.id.publisherview);
-        subscriberView1 = (SurfaceView)findViewById(R.id.subscriberview1);
-        subscriberView2 = (SurfaceView)findViewById(R.id.subscriberview2);
+        mMapView = (MapView)findViewById(R.id.map);
+        mMapView.onCreate(savedInstanceState);
+        mMap = mMapView.getMap();
+        mMap.setMyLocationEnabled(true);
+        try {
+            MapsInitializer.initialize(this);
+        } catch (GooglePlayServicesNotAvailableException e) {
+            android.util.Log.e("MainActivity", "Caught exception", e);
+        }
 
-        // Although this call is deprecated, Camera preview still seems to require it :-\
-        publisherView.getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        // SurfaceHolders are not initially available, so we'll wait to create the publisher
-        publisherView.getHolder().addCallback(this);
+        mCloudbaseManager = new CloudbaseManager(this, this);
 
-        // A simple executor will allow us to perform tasks asynchronously.
-        executor = Executors.newCachedThreadPool();
+        mUpdateLayouts.run();
 
-        // Disable screen dimming
-        PowerManager powerManager = (PowerManager)getSystemService(Context.POWER_SERVICE);
-        wakeLock = powerManager.newWakeLock(PowerManager.FULL_WAKE_LOCK,
-                        "Full Wake Lock");
+/*
+        mPublisherView = (TokBoxView)findViewById(R.id.publisherview);
+        mPublisherView.setSession(mPublishSessionId, mPublishTokenKey);
+        mSubscriberView1 = (TokBoxView)findViewById(R.id.subscriberview1);
+        mSubscriberView1.setSession(mPublishSessionId, mPublishTokenKey);
+        mSubscriberView2 = (TokBoxView)findViewById(R.id.subscriberview2);
+        mSubscriberView2.setSession(mPublishSessionId, mPublishTokenKey);
+        */
     }
 
     @Override
@@ -93,152 +107,66 @@ public class MainActivity extends Activity implements Publisher.Listener, Sessio
     }
 
     @Override
-    public void onStop() {
-        super.onStop();
-
-        if (wakeLock.isHeld()) {
-            wakeLock.release();
-        }
-        // Release the camera when the application is being destroyed, lest we can't acquire it again later.
-        if (null != camera) camera.release();
-    }
-
-    @Override
-    public void onResume() {
+    protected void onResume() {
         super.onResume();
-        if (!wakeLock.isHeld()) {
-            wakeLock.acquire();
+        mMapView.onResume();
+        LocationManager locationManager = (LocationManager)getSystemService(Activity.LOCATION_SERVICE);
+        String providerName = locationManager.getBestProvider(CRITERIA, true);
+        if (providerName == null) {
+            providerName = LocationManager.NETWORK_PROVIDER;
         }
+        Location location = locationManager.getLastKnownLocation(providerName);
+        if (location == null) {
+            location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+        }
+        if (location != null) {
+            onLocationChanged(location);
+        }
+        locationManager.requestLocationUpdates(providerName, MIN_UPDATE_TIME, MIN_UPDATE_DISTANCE, this, Looper.getMainLooper());
     }
 
     @Override
     protected void onPause() {
+        LocationManager locationManager = (LocationManager)getSystemService(Activity.LOCATION_SERVICE);
+        locationManager.removeUpdates(this);
+        mMapView.onPause();
         super.onPause();
-        if (wakeLock.isHeld()) {
-            wakeLock.release();
-        }
-    }
-
-    /**
-     * Invoked when Our Publisher's rendering surface comes available.
-     */
-    @Override
-    public void surfaceChanged(SurfaceHolder arg0, int arg1, int arg2, int arg3) {
-        if (publisher == null) {
-            executor.submit(new Runnable() {
-
-                @Override
-                public void run() {
-                    try {
-                        // This usually maps to the front camera.
-                        camera = Camera.open(Camera.getNumberOfCameras() - 1);
-                        camera.setPreviewDisplay(publisherView.getHolder());
-                        // Note: preview will continue even if we fail to connect.
-                        camera.startPreview();
-
-                        // Since our Publisher is ready, go ahead and prepare session instance and connect.
-                        session = Session.newInstance(getApplicationContext(),
-                                "2_MX4zMzAwOTg0Mn4xMjcuMC4wLjF-U2F0IEp1biAyMiAwNjozNDozOCBQRFQgMjAxM34wLjIzMTcxNDQ5fg",
-                                mPublishTokenKey,
-                                "33009842",
-                                MainActivity.this);
-                        session.connect();
-
-                    } catch (Throwable t) {
-                        t.printStackTrace();
-                    }
-
-                }});
-        }
     }
 
     @Override
-    public void surfaceCreated(SurfaceHolder arg0) {
+    protected void onDestroy() {
+        mMapView.onDestroy();
+        super.onDestroy();
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {}
+
+    @Override
+    public void onProviderDisabled(String provider) {}
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {}
+
+    @Override
+    public void onLocationChanged(Location location) {
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(new CameraPosition.Builder(mMap.getCameraPosition()).target(new LatLng(location.getLatitude(), location.getLongitude())).zoom(18.0f).tilt(75.0f).build()));
+    }
+
+    @Override
+    public void gotGeoStream(float latitude, float longitude, float altitude, String sessionId, String tokenKey) {
         // TODO Auto-generated method stub
+        android.util.Log.e("MainActivity", "gotGeoStream(" + latitude + ", " + longitude + ", " + altitude + ", " + sessionId + ", " + tokenKey + ")");
 
+        Subscriber subscriber = new Subscriber();
+        subscriber.latLng = new LatLng(longitude, latitude);
+
+        AbsoluteLayout layout = (AbsoluteLayout)findViewById(R.id.layout);
+        View.inflate(this, R.layout.overlay_subscriber, layout);
+        subscriber.view = layout.getChildAt(layout.getChildCount() - 1);
+        TokBoxView tokBoxView = (TokBoxView)(((AbsoluteLayout)subscriber.view).getChildAt(2));
+        tokBoxView.setSession(sessionId, tokenKey);
+        tokBoxView.setZOrderOnTop(true);
+        mSubscribers.add(subscriber);
     }
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder arg0) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void onSessionConnected() {
-        executor.submit(new Runnable() {
-
-            @Override
-            public void run() {
-                // Session is ready to publish. Create Publisher instance from our rendering surface and camera, then connect.
-                publisher = session.createPublisher(camera, publisherView.getHolder());
-                publisher.connect();
-
-                GeoStream geoStream = new GeoStream();
-                geoStream.setLatitude((float)mLocationTracker.getLatitude());
-                geoStream.setLongitude((float)mLocationTracker.getLongitude());
-                geoStream.setAltitude((float)mLocationTracker.getAltitude());
-                geoStream.setSessionId(session.getSessionId());
-                geoStream.setTokenKey(mPublishTokenKey);
-                mCbHelper.insertDocument(geoStream, GEOSTREAMS);
-            }});
-    }
-
-    @Override
-    public void onSessionDidReceiveStream(final Stream stream) {
-        executor.submit(new Runnable() {
-
-            @Override
-            public void run() {
-                if (mNumStreams == 0)
-                {
-                    subscriber1 = session.createSubscriber(subscriberView1, stream);
-                    subscriber1.connect();
-                } else {
-                    subscriber2 = session.createSubscriber(subscriberView2, stream);
-                    subscriber2.connect();
-                }
-                mNumStreams++;
-            }});
-    }
-
-    @Override
-    public void onPublisherStreamingStarted() {
-        Log.i("hello-world", "publisher is streaming!");
-    }
-
-    @Override
-    public void onPublisherFailed() {
-        Log.e("hello-world", "publisher failed!");
-    }
-
-    @Override
-    public void onSessionDidDropStream(Stream stream) {
-        Log.i("hello-world", String.format("stream %d dropped", stream.toString()));
-        mNumStreams--;
-    }
-
-    @Override
-    public void onSessionError(Exception cause) {
-        Log.e("hello-world", "session failed! "+cause.toString());
-    }
-
-    @Override
-    public void onSessionDisconnected() {
-        Log.i("hello-world", "session disconnected");
-    }
-
-    @Override
-    public void onPublisherDisconnected() {
-        Log.i("hello-world", "publisher disconnected");
-
-    }
-
-    @Override
-    public void handleResponse(CBQueuedRequest req, CBHelperResponse res) {
-        Log.v("logTag", (res.isSuccess()?"OK":"FAILED"));
-        Log.v("logTag", res.getResponseDataString());
-
-    }
-
 }

@@ -1,0 +1,26 @@
+<AbsoluteLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="340px"
+    android:layout_height="307px">
+
+<ImageView
+    android:layout_width="492px"
+    android:layout_height="303px"
+    android:layout_x="4px"
+    android:layout_y="4px"
+    android:src="@drawable/map_finder_shadow" />
+
+<ImageView
+    android:layout_width="340px"
+    android:layout_height="303px"
+    android:layout_x="0px"
+    android:layout_y="0px"
+    android:src="@drawable/map_finder" />
+
+<net.cantab.matt.williams.periscope.SubscriberView
+    android:layout_width="320px"
+    android:layout_height="240px"
+    android:layout_x="10px"
+    android:layout_y="10px" />
+
+</AbsoluteLayout>

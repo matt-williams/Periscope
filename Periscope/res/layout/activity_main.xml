@@ -1,22 +1,19 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<AbsoluteLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    >
+    android:layout_height="match_parent">
 
-    <SurfaceView
-        android:layout_width="240dp"
-        android:layout_height="180dp"
-        android:id="@+id/publisherview" />
-
-    <SurfaceView
-        android:layout_width="240dp"
-        android:layout_height="180dp"
-        android:id="@+id/subscriberview1" />
+    <com.google.android.gms.maps.MapView
+        xmlns:map="http://schemas.android.com/apk/rtes-auto"
+        android:id="@+id/map"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        map:uiCompass="true"
+        map:uiRotateGestures="true"
+        map:uiScrollGestures="true"
+        map:uiTiltGestures="true"
+        map:uiZoomControls="false"
+        map:uiZoomGestures="true" />
     
-    <SurfaceView
-        android:layout_width="240dp"
-        android:layout_height="180dp"
-        android:id="@+id/subscriberview2" />
-    
-</LinearLayout>
+</AbsoluteLayout>
