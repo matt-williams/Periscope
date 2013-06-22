@@ -7,6 +7,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.hardware.Camera;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -34,31 +35,42 @@ import com.opentok.Subscriber;
  *
  */
 public class MainActivity extends Activity implements Publisher.Listener, Session.Listener, Callback, CBHelperResponder {
+    private static final String GEOSTREAMS = "geostreams";
     ExecutorService executor;
     SurfaceView publisherView;
-    SurfaceView subscriberView;
+    SurfaceView subscriberView1;
+    SurfaceView subscriberView2;
     Camera camera;
     Publisher publisher;
-    Subscriber subscriber;
+    Subscriber subscriber1;
+    Subscriber subscriber2;
     private Session session;
     private WakeLock wakeLock;
+    private LocationTracker mLocationTracker;
+    private CBHelper mCbHelper;
+    private int mNumStreams;
+    private final String mPublishTokenKey = "T1==cGFydG5lcl9pZD0zMzAwOTg0MiZzZGtfdmVyc2lvbj10YnJ1YnktdGJyYi12MC45MS4yMDExLTAyLTE3JnNpZz05YTA5OTIwMDM3NzM3MTVjNjA5OTI5YmI5NzlmNGE2OGVkYWMzODNkOnJvbGU9cHVibGlzaGVyJnNlc3Npb25faWQ9Ml9NWDR6TXpBd09UZzBNbjR4TWpjdU1DNHdMakYtVTJGMElFcDFiaUF5TWlBd05qb3pORG96T0NCUVJGUWdNakF4TTM0d0xqSXpNVGN4TkRRNWZnJmNyZWF0ZV90aW1lPTEzNzE5MDgwOTImbm9uY2U9MC4zMTY4OTI3MDM2ODQ4MzA4JmV4cGlyZV90aW1lPTEzNzI1MTI4OTImY29ubmVjdGlvbl9kYXRhPQ==";
+
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        mLocationTracker = new LocationTracker((LocationManager)getSystemService(Activity.LOCATION_SERVICE));
+
+
      // the helper class constructor also receives the current Activity object
      // this is used to get the application details and its cache paths.
-     CBHelper myHelper = new CBHelper(
-             "geoviddeo",
-             "6962204d83ba56e7a24fb798b8451f40",
-              this);
-     myHelper.setPassword("8207da8cebeff54968639df7ab83d4e8");
+     mCbHelper = new CBHelper("geoviddeo", "6962204d83ba56e7a24fb798b8451f40", this);
+     mCbHelper.setPassword("8207da8cebeff54968639df7ab83d4e8");
+     mCbHelper.searchDocument(GEOSTREAMS, this);
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
         publisherView = (SurfaceView)findViewById(R.id.publisherview);
-        subscriberView = (SurfaceView)findViewById(R.id.subscriberview);
+        subscriberView1 = (SurfaceView)findViewById(R.id.subscriberview1);
+        subscriberView2 = (SurfaceView)findViewById(R.id.subscriberview2);
 
         // Although this call is deprecated, Camera preview still seems to require it :-\
         publisherView.getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
@@ -127,7 +139,7 @@ public class MainActivity extends Activity implements Publisher.Listener, Sessio
                         // Since our Publisher is ready, go ahead and prepare session instance and connect.
                         session = Session.newInstance(getApplicationContext(),
                                 "2_MX4zMzAwOTg0Mn4xMjcuMC4wLjF-U2F0IEp1biAyMiAwNjozNDozOCBQRFQgMjAxM34wLjIzMTcxNDQ5fg",
-                                "T1==cGFydG5lcl9pZD0zMzAwOTg0MiZzZGtfdmVyc2lvbj10YnJ1YnktdGJyYi12MC45MS4yMDExLTAyLTE3JnNpZz05YTA5OTIwMDM3NzM3MTVjNjA5OTI5YmI5NzlmNGE2OGVkYWMzODNkOnJvbGU9cHVibGlzaGVyJnNlc3Npb25faWQ9Ml9NWDR6TXpBd09UZzBNbjR4TWpjdU1DNHdMakYtVTJGMElFcDFiaUF5TWlBd05qb3pORG96T0NCUVJGUWdNakF4TTM0d0xqSXpNVGN4TkRRNWZnJmNyZWF0ZV90aW1lPTEzNzE5MDgwOTImbm9uY2U9MC4zMTY4OTI3MDM2ODQ4MzA4JmV4cGlyZV90aW1lPTEzNzI1MTI4OTImY29ubmVjdGlvbl9kYXRhPQ==",
+                                mPublishTokenKey,
                                 "33009842",
                                 MainActivity.this);
                         session.connect();
@@ -161,6 +173,14 @@ public class MainActivity extends Activity implements Publisher.Listener, Sessio
                 // Session is ready to publish. Create Publisher instance from our rendering surface and camera, then connect.
                 publisher = session.createPublisher(camera, publisherView.getHolder());
                 publisher.connect();
+
+                GeoStream geoStream = new GeoStream();
+                geoStream.setLatitude((float)mLocationTracker.getLatitude());
+                geoStream.setLongitude((float)mLocationTracker.getLongitude());
+                geoStream.setAltitude((float)mLocationTracker.getAltitude());
+                geoStream.setSessionId(session.getSessionId());
+                geoStream.setTokenKey(mPublishTokenKey);
+                mCbHelper.insertDocument(geoStream, GEOSTREAMS);
             }});
     }
 
@@ -170,11 +190,15 @@ public class MainActivity extends Activity implements Publisher.Listener, Sessio
 
             @Override
             public void run() {
-                // If this incoming stream is our own Publisher stream, let's look in the mirror.
-//                if (publisher.getStreamId().equals(stream.getStreamId())) {
-                    subscriber = session.createSubscriber(subscriberView, stream);
-                    subscriber.connect();
-//                }
+                if (mNumStreams == 0)
+                {
+                    subscriber1 = session.createSubscriber(subscriberView1, stream);
+                    subscriber1.connect();
+                } else {
+                    subscriber2 = session.createSubscriber(subscriberView2, stream);
+                    subscriber2.connect();
+                }
+                mNumStreams++;
             }});
     }
 
@@ -191,6 +215,7 @@ public class MainActivity extends Activity implements Publisher.Listener, Sessio
     @Override
     public void onSessionDidDropStream(Stream stream) {
         Log.i("hello-world", String.format("stream %d dropped", stream.toString()));
+        mNumStreams--;
     }
 
     @Override
@@ -210,8 +235,9 @@ public class MainActivity extends Activity implements Publisher.Listener, Sessio
     }
 
     @Override
-    public void handleResponse(CBQueuedRequest arg0, CBHelperResponse arg1) {
-        // TODO Auto-generated method stub
+    public void handleResponse(CBQueuedRequest req, CBHelperResponse res) {
+        Log.v("logTag", (res.isSuccess()?"OK":"FAILED"));
+        Log.v("logTag", res.getResponseDataString());
 
     }
 

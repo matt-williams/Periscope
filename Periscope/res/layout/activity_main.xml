@@ -1,4 +1,4 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -7,13 +7,16 @@
     <SurfaceView
         android:layout_width="240dp"
         android:layout_height="180dp"
-        android:id="@+id/publisherview"
-        android:layout_alignParentLeft="true" />
+        android:id="@+id/publisherview" />
 
     <SurfaceView
         android:layout_width="240dp"
         android:layout_height="180dp"
-        android:id="@+id/subscriberview"
-        android:layout_alignParentRight="true" />
+        android:id="@+id/subscriberview1" />
     
-</RelativeLayout>
+    <SurfaceView
+        android:layout_width="240dp"
+        android:layout_height="180dp"
+        android:id="@+id/subscriberview2" />
+    
+</LinearLayout>
