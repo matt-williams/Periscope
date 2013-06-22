@@ -1,14 +1,18 @@
 package net.cantab.matt.williams.periscope;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import net.cantab.matt.williams.periscope.CloudbaseManager.GeoStreamCallback;
+import android.content.Intent;
 import android.graphics.Point;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AbsoluteLayout;
 
@@ -20,8 +24,6 @@ import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 
-// Based on git@github.com:opentok/Android-Hello-World.git
-
 /**
  * This application demonstrates the basic workflow for getting started with the OpenTok Android SDK.
  * Currently the user is expected to provide rendering surfaces for the SDK, so we'll create
@@ -29,6 +31,16 @@ import com.google.android.gms.maps.model.LatLng;
  *
  */
 public class MainActivity extends LocationActivity implements GeoStreamCallback {
+    @Override
+    public boolean onMenuItemSelected(int featureId, MenuItem item) {
+        if (item.getItemId() == R.id.menu_broadcast) {
+            Intent intent = new Intent(this, BroadcastActivity.class);
+            startActivity(intent);
+            return true;
+        }
+        return super.onMenuItemSelected(featureId, item);
+    }
+
     private class Subscriber {
         public LatLng latLng;
         public View view;
@@ -49,6 +61,21 @@ public class MainActivity extends LocationActivity implements GeoStreamCallback 
                 params.x = point.x - params.width / 2;
                 params.y = point.y - params.height;
                 subscriber.view.setLayoutParams(params);
+            }
+            Collections.sort(mSubscribers, new Comparator<Subscriber>() {
+
+                @Override
+                public int compare(Subscriber lhs, Subscriber rhs) {
+                    if (((AbsoluteLayout.LayoutParams)lhs.view.getLayoutParams()).y < ((AbsoluteLayout.LayoutParams)rhs.view.getLayoutParams()).y) {
+                        return -1;
+                    } else if (((AbsoluteLayout.LayoutParams)lhs.view.getLayoutParams()).y > ((AbsoluteLayout.LayoutParams)rhs.view.getLayoutParams()).y) {
+                        return 1;
+                    }
+                    return 0;
+                }
+            });
+            for (Subscriber subscriber : mSubscribers) {
+                subscriber.view.bringToFront();
             }
             mHandler.postDelayed(mUpdateLayouts, 10);
         }
