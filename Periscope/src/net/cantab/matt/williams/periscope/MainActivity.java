@@ -4,15 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.cantab.matt.williams.periscope.CloudbaseManager.GeoStreamCallback;
-import android.app.Activity;
 import android.graphics.Point;
-import android.location.Criteria;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.view.Menu;
 import android.view.View;
 import android.widget.AbsoluteLayout;
@@ -33,14 +28,7 @@ import com.google.android.gms.maps.model.LatLng;
  * SurfaceHolder instances for each component.
  *
  */
-public class MainActivity extends Activity implements LocationListener, GeoStreamCallback {
-    private static final Criteria CRITERIA = new Criteria();
-    static {
-        CRITERIA.setAccuracy(Criteria.ACCURACY_COARSE);
-    }
-    private static final long MIN_UPDATE_TIME = 10000;
-    private static final float MIN_UPDATE_DISTANCE = 10.0f;
-
+public class MainActivity extends LocationActivity implements GeoStreamCallback {
     private class Subscriber {
         public LatLng latLng;
         public View view;
@@ -52,11 +40,6 @@ public class MainActivity extends Activity implements LocationListener, GeoStrea
     private CloudbaseManager mCloudbaseManager;
 
     List<Subscriber> mSubscribers = new ArrayList<Subscriber>();
-//    private View mPublisherView;
-//    private TokBoxView mSubscriberView1;
-//    private TokBoxView mSubscriberView2;
-    private final String mPublishSessionId = "2_MX4zMzAwOTg0Mn4xMjcuMC4wLjF-U2F0IEp1biAyMiAwNjozNDozOCBQRFQgMjAxM34wLjIzMTcxNDQ5fg";
-    private final String mPublishTokenKey = "T1==cGFydG5lcl9pZD0zMzAwOTg0MiZzZGtfdmVyc2lvbj10YnJ1YnktdGJyYi12MC45MS4yMDExLTAyLTE3JnNpZz05YTA5OTIwMDM3NzM3MTVjNjA5OTI5YmI5NzlmNGE2OGVkYWMzODNkOnJvbGU9cHVibGlzaGVyJnNlc3Npb25faWQ9Ml9NWDR6TXpBd09UZzBNbjR4TWpjdU1DNHdMakYtVTJGMElFcDFiaUF5TWlBd05qb3pORG96T0NCUVJGUWdNakF4TTM0d0xqSXpNVGN4TkRRNWZnJmNyZWF0ZV90aW1lPTEzNzE5MDgwOTImbm9uY2U9MC4zMTY4OTI3MDM2ODQ4MzA4JmV4cGlyZV90aW1lPTEzNzI1MTI4OTImY29ubmVjdGlvbl9kYXRhPQ==";
     private final Runnable mUpdateLayouts = new Runnable() {
         @Override
         public void run() {
@@ -89,15 +72,6 @@ public class MainActivity extends Activity implements LocationListener, GeoStrea
         mCloudbaseManager = new CloudbaseManager(this, this);
 
         mUpdateLayouts.run();
-
-/*
-        mPublisherView = (TokBoxView)findViewById(R.id.publisherview);
-        mPublisherView.setSession(mPublishSessionId, mPublishTokenKey);
-        mSubscriberView1 = (TokBoxView)findViewById(R.id.subscriberview1);
-        mSubscriberView1.setSession(mPublishSessionId, mPublishTokenKey);
-        mSubscriberView2 = (TokBoxView)findViewById(R.id.subscriberview2);
-        mSubscriberView2.setSession(mPublishSessionId, mPublishTokenKey);
-        */
     }
 
     @Override
@@ -110,25 +84,10 @@ public class MainActivity extends Activity implements LocationListener, GeoStrea
     protected void onResume() {
         super.onResume();
         mMapView.onResume();
-        LocationManager locationManager = (LocationManager)getSystemService(Activity.LOCATION_SERVICE);
-        String providerName = locationManager.getBestProvider(CRITERIA, true);
-        if (providerName == null) {
-            providerName = LocationManager.NETWORK_PROVIDER;
-        }
-        Location location = locationManager.getLastKnownLocation(providerName);
-        if (location == null) {
-            location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-        }
-        if (location != null) {
-            onLocationChanged(location);
-        }
-        locationManager.requestLocationUpdates(providerName, MIN_UPDATE_TIME, MIN_UPDATE_DISTANCE, this, Looper.getMainLooper());
     }
 
     @Override
     protected void onPause() {
-        LocationManager locationManager = (LocationManager)getSystemService(Activity.LOCATION_SERVICE);
-        locationManager.removeUpdates(this);
         mMapView.onPause();
         super.onPause();
     }
@@ -140,22 +99,12 @@ public class MainActivity extends Activity implements LocationListener, GeoStrea
     }
 
     @Override
-    public void onProviderEnabled(String provider) {}
-
-    @Override
-    public void onProviderDisabled(String provider) {}
-
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {}
-
-    @Override
     public void onLocationChanged(Location location) {
         mMap.animateCamera(CameraUpdateFactory.newCameraPosition(new CameraPosition.Builder(mMap.getCameraPosition()).target(new LatLng(location.getLatitude(), location.getLongitude())).zoom(18.0f).tilt(75.0f).build()));
     }
 
     @Override
     public void gotGeoStream(float latitude, float longitude, float altitude, String sessionId, String tokenKey) {
-        // TODO Auto-generated method stub
         android.util.Log.e("MainActivity", "gotGeoStream(" + latitude + ", " + longitude + ", " + altitude + ", " + sessionId + ", " + tokenKey + ")");
 
         Subscriber subscriber = new Subscriber();
