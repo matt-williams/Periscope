@@ -5,7 +5,9 @@
 
 <net.cantab.matt.williams.periscope.PublisherView
     android:id="@+id/publisherview"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent" />
+    android:layout_width="680dp"
+    android:layout_height="480dp"
+    android:layout_centerHorizontal="true"
+    android:layout_centerVertical="true" />
 
 </RelativeLayout>

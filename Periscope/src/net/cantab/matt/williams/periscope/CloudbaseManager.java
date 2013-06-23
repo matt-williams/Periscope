@@ -36,7 +36,7 @@ public class CloudbaseManager {
             @Override
             public void handleResponse(CBQueuedRequest req, CBHelperResponse rsp) {
                 if (rsp.isSuccess()) {
-                    for (StringMap entry : (ArrayList<StringMap>)rsp.getData()) {
+                    for (StringMap<Object> entry : (ArrayList<StringMap<Object>>)rsp.getData()) {
                         if (!((Boolean)entry.get("deleted")).booleanValue()) {
                             mGeoStreamCallback.gotGeoStream(((Number)entry.get("longitude")).floatValue(),
                                                             ((Number)entry.get("latitude")).floatValue(),
