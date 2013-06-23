@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.widget.AbsoluteLayout;
 
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
@@ -131,7 +132,7 @@ public class MainActivity extends LocationActivity implements GeoStreamCallback 
     }
 
     @Override
-    public void gotGeoStream(float latitude, float longitude, float altitude, String sessionId, String tokenKey) {
+    public void gotGeoStream(float latitude, float longitude, float altitude, final String sessionId, final String tokenKey) {
         android.util.Log.e("MainActivity", "gotGeoStream(" + latitude + ", " + longitude + ", " + altitude + ", " + sessionId + ", " + tokenKey + ")");
 
         Subscriber subscriber = new Subscriber();
@@ -140,6 +141,15 @@ public class MainActivity extends LocationActivity implements GeoStreamCallback 
         AbsoluteLayout layout = (AbsoluteLayout)findViewById(R.id.layout);
         View.inflate(this, R.layout.overlay_subscriber, layout);
         subscriber.view = layout.getChildAt(layout.getChildCount() - 1);
+        subscriber.view.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this, SubscriberActivity.class);
+                intent.putExtra(SubscriberActivity.EXTRA_SESSION_ID, sessionId);
+                intent.putExtra(SubscriberActivity.EXTRA_TOKEN_KEY, tokenKey);
+                startActivity(intent);
+            }
+        });
         TokBoxView tokBoxView = (TokBoxView)(((AbsoluteLayout)subscriber.view).getChildAt(2));
         tokBoxView.setSession(sessionId, tokenKey);
         tokBoxView.setZOrderOnTop(true);

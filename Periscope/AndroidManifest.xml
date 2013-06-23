@@ -62,6 +62,10 @@
             android:name="net.cantab.matt.williams.periscope.BroadcastActivity"
             android:label="@string/app_name" >
         </activity>
+        <activity
+            android:name="net.cantab.matt.williams.periscope.SubscriberActivity"
+            android:label="@string/app_name" >
+        </activity>
     </application>
 
 </manifest>
